@@ -1,0 +1,216 @@
+# Etsem.IQ — architecture notes
+
+The product is one file, `index.html`, served as a static asset (Cloudflare
+Workers assets via `wrangler.jsonc`, deployed through Whop). There is no
+server of our own and no build step for the app itself. Everything below is a
+consequence of that.
+
+```
+index.html
+├── <style>                     theme tokens → components → Bob → breakpoints
+├── <script> 1  i18n            T (5 languages) + T_EXT, t(), category names
+├── <script> 2  content         shapes, figures, free-test bank, audit table,
+│                               Hardcore bank
+├── <script> 3  core            storage, accounts, quiz engine, scoring, plans
+├── <script> 4  Bob + UI kit    mascot renderer, voice, dialog, exit guard,
+│                               mobile sheet, screen effects
+└── <script> 5  app             games, level maps, Hardcore run, Bob's brain,
+                                language, nav, settings, theme, music, boot
+```
+
+Script blocks are parsed in order but only the last one runs anything at load
+(the boot IIFE), so cross-block calls are all resolved by the time they happen.
+
+---
+
+## Bob — the mascot system
+
+`BOB_PARTS` / `BOB_EYES` / `BOB_MOUTH` / `BOB_BROW` / `BOB_FX` are the vocabulary;
+`BOB_STATES` is the grammar. One state is one row:
+
+```js
+correct: {eyes:'happy', mouth:'grin', brow:'none', fx:'sparks'}
+```
+
+`bobInner(state)` assembles the markup, `bobSVG(state, opts)` wraps it in an
+`<svg class="bob bob--correct">`, and the CSS drives movement off that class.
+Every Bob on the site — the floating button, the chat header, the lobby card,
+the quiz stage, the dialogs, the Hardcore banner — comes from this one function
+at the same 64×64 viewBox, which is why he is recognisably the same character
+everywhere.
+
+**Adding a state** is one entry in `BOB_STATES` plus, if it needs new movement,
+one `@keyframes` rule and one `.bob--<name> .bob-body{animation:…}` line. No
+other file or function has to change.
+
+Runtime helpers:
+
+| Function | Use |
+|---|---|
+| `bobSVG(state, opts)` | Bob as a string, for templates |
+| `mountBobs(root)` | fills every `[data-bob]` placeholder; idempotent |
+| `setBobState(el, state, hold, restTo)` | swap state in place; `hold` returns him to rest after N ms |
+| `bobSetStage(mountId, state, text, tone, hold)` | Bob + one line of copy, the in-game reaction surface |
+| `bobReact(beat)` | the quiz stage, choosing copy from the matching pool |
+| `bobMoment(state, text, ms)` | a corner drop-in that never blocks input |
+
+**Voice.** `BOB_LINES` holds 2–5 phrasings per beat per language and `bobLine()`
+never returns the same one twice in a row. Personality: intelligent, curious,
+supportive, a little dry. He does not mock a wrong answer and he does not pad.
+
+**Performance.** Inline SVG plus CSS; animations only touch `transform` and
+`opacity`. No runtime dependency, no image requests, no layout thrash. Reactions
+never gate input — the next question is answerable while Bob is still moving.
+
+**Reduced motion.** `prefers-reduced-motion` removes the movement and keeps the
+state: expressions still change, effects fade instead of flying, and every
+correct/wrong signal is also carried by colour and text, never by motion alone.
+
+### Where Bob reacts
+
+| Moment | State |
+|---|---|
+| First ever visit | `greeting` (once, then never again) |
+| Test / level start | `testStart` |
+| Hard or extreme item | `thinking` |
+| Correct answer (games only) | `correct` |
+| 3 in a row / 5+ in a row | `streak` |
+| Wrong answer | `wrong` |
+| Level passed / 3 stars | `celebrate` / `highScore` |
+| Personal best beaten | `newRecord` |
+| Test finished | `testComplete` |
+| Entering Hardcore | `hardcore` |
+| Locked content | `plus` |
+
+In the **scored Free Test** Bob never says whether an answer was right. Showing
+the key mid-assessment would turn an assessment into a quiz with an answer
+sheet. He reacts to difficulty and progress there instead; immediate
+correct/wrong feedback is for the training games and Hardcore, where it is the
+point.
+
+---
+
+## Bob — understanding
+
+No backend means nowhere to keep an API key, and a key in client JavaScript is
+readable by every visitor. So Bob is local, but a real engine rather than a
+lookup table:
+
+```
+normalise → tokenise → score every intent → fuzzy-match the rest →
+pick, or fall back → answer from a pool, coloured by what we know
+```
+
+* **Normalisation** folds case, strips all combining marks after NFD (Latin
+  accents, Hebrew niqqud, Arabic tashkeel and the hamza that NFD splits off an
+  alef), and folds ta-marbuta, alef forms and alef maqsura.
+* **Scoring** is the strongest single piece of evidence plus sharply diminishing
+  credit for the rest. A multi-word key scores by how much of it is present, so
+  a typo in one word does not lose the phrase; function words are excluded from
+  that coverage, so "what is the capital of Peru" cannot match "what is the
+  average" on its function words alone.
+* **Fuzzy matching** is a Dice coefficient over character bigrams, with a prefix
+  fallback that refuses to fire on words shorter than three characters.
+* **Context**: a bare follow-up ("why?", "more", "למה") re-opens the previous
+  topic.
+* **Fallback** names what Bob does know and offers three suggestions chosen for
+  where the person actually is. He never invents a number: facts come from
+  `bobFacts()`, and an intent whose answer needs results has separate `r` and
+  `nor` pools.
+
+38 intents, keyed in all five languages; 38 answer sets, each with 1–3 phrasings
+per language.
+
+**Swapping in a real model** later means replacing `bobAnswer()` and nothing
+else — but it needs a backend to hold the key. See LIMITATIONS below.
+
+---
+
+## Leaving an active test
+
+Every navigation on the site goes through `showScreen()`, so the exit warning
+lives there: one check covers the logo, the nav links, the mobile sheet, Bob's
+action buttons and the in-game back links, instead of a handler on each.
+
+`armActivity('test'|'game')` marks an activity as running; `ACTIVITY_FLOW` lists
+the screens that belong to it, and any other target is held back and confirmed
+first. `disarmActivity()` runs the moment the activity is scored. Answering a
+question never touches `showScreen`, so it never triggers the warning.
+`beforeunload` is registered only while an activity is armed.
+
+The dialog is always escapable — scrim click and Escape both take the cancel
+branch — so nobody can be trapped in it.
+
+---
+
+## Music
+
+A small generative arrangement, synthesised in the browser: five chord
+progressions in D major, four arrangement sections (open / build / lift / air)
+that change every sixteen bars with a filter-sweep transition, and six melodic
+motifs drawn from the D major pentatonic so no motif can clash with any chord in
+the key. Scheduling uses the standard Web Audio lookahead pattern, so timing
+does not drift when the main thread is busy rendering a question.
+
+Everything runs through one bus, which is what makes "stop" immediate: the
+scheduler is cleared and the bus is faded over 120 ms, so anything already
+queued on the audio clock is silent. Music is off until the user turns it on,
+the choice is remembered per device, and a remembered "on" is armed on the first
+gesture rather than at load, so autoplay policy is never violated.
+
+Measured over a 150-second offline render: peak ≈ −22 dBFS, no silent seconds,
+RMS coefficient of variation ≈ 0.35 (i.e. it breathes), and 10-second windows
+taken 10 / 20 / 40 / 80 seconds apart are uncorrelated — it is not a loop.
+
+---
+
+## PLUS
+
+One paid tier, three billing lengths. `isLocked(key)` is the single gate;
+`CATALOG` entries can carry `free:true` and bypass it. A locked game opens
+`showPlusGate()`, which offers the PLUS plans first, the free test second and
+"not right now" third — it never silently redirects. The Free Test and the
+estimated range are never gated.
+
+Prices and the Whop checkout URL are unchanged by this work:
+$19.99/month · $89/6 months · $149/year, monthly → `whop.com/checkout/plan_RDy7qaLo2Uobp`.
+
+---
+
+## Responsive layout
+
+`--gutter` is one token every shell reads, so narrowing the page narrows every
+layout at once and no screen can be left wide enough to push the page sideways.
+The hero uses `clamp(28px, 7.2vw, 54px)`: `7.2vw` only passes 54px above roughly
+750px and the ceiling holds it there, so **desktop is pixel-identical to before**
+while the floor still fits a 320px screen with gutters.
+
+At ≤820px the desktop control strip is replaced — not shrunk — by a phone
+cluster: the primary action stays a button, and everything else moves into a
+labelled bottom sheet where each control is a full-width row with its name and
+its current state in words. Nothing is removed. Tap targets are ≥44px.
+
+Verified at 320 / 360 / 375 / 390 / 414 / 430 / 768 / 1024 / 1280 / 1440 / 1920
+across all 21 screens, in both themes and in both text directions, with font
+metrics stressed 12% wider than the fallback: no horizontal overflow anywhere.
+
+---
+
+## LIMITATIONS
+
+Things that would need a backend, and are therefore **not** done here:
+
+* **A real language model for Bob.** Requires a server to hold the API key. The
+  local engine is a genuine intent system, but it cannot answer questions
+  outside its knowledge base and says so rather than guessing.
+* **Real payments.** The card form is a simulation and says so on screen. The
+  monthly plan already hands off to Whop checkout; the other two would need the
+  same treatment or a processor.
+* **Server-side accounts.** Accounts, results and progress live in
+  `localStorage`. Consequences, which Bob explains when asked: no password-reset
+  email is possible, clearing site data deletes the account, and results do not
+  follow a user to another device or browser.
+* **Certificate verification.** `etsemiq.com/verify` is printed on the
+  certificate but there is no endpoint behind it.
+* **Real usage statistics.** The ticker, "6,204 people took the test today" and
+  the testimonials are static marketing copy, not live data.
