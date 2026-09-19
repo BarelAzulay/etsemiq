@@ -1,0 +1,32 @@
+{
+  "name": "etsemiq",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite",
+    "deploy": "whop apps deploy",
+    "typecheck": "tsc --noEmit",
+    "build": "vite build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BarelAzulay/etsemiq.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/BarelAzulay/etsemiq/issues"
+  },
+  "homepage": "https://github.com/BarelAzulay/etsemiq#readme",
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.56.0",
+    "@whop/cli": "^0.18.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0",
+    "wrangler": "^4.135.0"
+  }
+}
