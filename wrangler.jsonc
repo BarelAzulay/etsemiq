@@ -1,6 +1,6 @@
 {
   "": "./node_modules/wrangler/config-schema.json",
-  "name": "etsemiq-web",
+  "name": "etsemiq-app",
   "compatibility_date": "2026-09-18",
   "assets": {
     "not_found_handling": "single-page-application"
