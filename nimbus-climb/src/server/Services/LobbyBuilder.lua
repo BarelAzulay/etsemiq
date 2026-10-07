@@ -87,8 +87,8 @@ local ISLANDS = {
 }
 
 -- Rainbow arch: vertical plane z = ORIGIN.Z + ARCH_Z, centred on the plaza's x.
-local ARCH_Z = 42
-local ARCH_R = 40
+local ARCH_Z = 48
+local ARCH_R = 38
 
 ----------------------------------------------------------------------
 -- Per-build state
@@ -322,7 +322,7 @@ local function signPanel(gui)
 	local panel = Instance.new("Frame")
 	panel.Name = "Panel"
 	panel.Size = UDim2.new(1, 0, 1, 0)
-	panel.BackgroundColor3 = COL.Navy
+	panel.BackgroundColor3 = C.White -- UIGradient multiplies this, so it must be white
 	panel.BorderSizePixel = 0
 	Theme.Gradient(panel, COL.Navy, COL.Violet, 90)
 	Theme.Corner(panel, UDim.new(0, 28))
@@ -485,8 +485,8 @@ local function lanternTree(parent, rng, base, scale, blossom, withLight)
 		CanCollide = false,
 		CastShadow = true,
 	})
-	for i = 1, 3 do
-		local a = (i - 1) * (math.pi * 2 / 3) + rng:Float(-0.4, 0.4)
+	for i = 1, 2 do
+		local a = (i - 1) * math.pi + rng:Float(-0.5, 0.5)
 		local rr = rng:Float(2.4, 3.1) * scale
 		ball(parent, crownPos + Vector3.new(math.cos(a) * rr, rng:Float(-1.4, -0.2) * scale, math.sin(a) * rr), rng:Float(4.6, 6) * scale, {
 			Name = "TreeBlossom",
@@ -546,7 +546,7 @@ local function flowerPatch(parent, rng, center, radius, count)
 			Color = color,
 			CanCollide = false,
 		})
-		if rng:Chance(0.5) then
+		if rng:Chance(0.35) then
 			disc(parent, pos + Vector3.new(0, h - 0.05, 0), rng:Float(1.6, 2.2), 0.12, {
 				Name = "FlowerPetals",
 				Color = color:Lerp(C.White, 0.35),
@@ -571,12 +571,13 @@ local function pond(parent, rng, ground, radius)
 		Reflectance = 0.15,
 		CanCollide = false,
 	})
-	local stones = math.max(6, math.floor(math.pi * 2 * radius / 2.1))
+	local stones = math.max(6, math.floor(math.pi * 2 * radius / 2.7))
 	for i = 1, stones do
 		local a = (i - 1) * (math.pi * 2 / stones) + rng:Float(-0.1, 0.1)
-		ball(parent, ground + Vector3.new(math.cos(a) * (radius + 0.5), 0.3, math.sin(a) * (radius + 0.5)), rng:Float(1.6, 2.3), {
+		ball(parent, ground + Vector3.new(math.cos(a) * (radius + 0.5), 0.3, math.sin(a) * (radius + 0.5)), rng:Float(1.8, 2.4), {
 			Name = "PondStone",
 			Color = COL.Cloud:Lerp(COL.Shade, rng:Float(0, 0.4)),
+			CanCollide = false,
 		})
 	end
 	for i = 1, 2 do
@@ -727,7 +728,7 @@ local function buildPlaza(root, portalAngles, bridgeAngles, portalDiffs)
 	end
 
 	-- Puffy rim (open where bridges leave the plaza).
-	rimPuffs(f, rng, Vector3.new(ox, TOP, oz), SURF_R + 0.5, 30, 8, 12, 0.2, 1.4, COL.Cloud, bridgeAngles, 9)
+	rimPuffs(f, rng, Vector3.new(ox, TOP, oz), SURF_R + 0.5, 27, 8, 12, 0.2, 1.4, COL.Cloud, bridgeAngles, 9)
 
 	-- Soft pastel swirl patches on the ground so the plaza is not one flat white sheet.
 	local patchColors = { COL.Lilac, COL.Peach, COL.Pink, COL.Sky }
@@ -814,8 +815,8 @@ local function buildPlaza(root, portalAngles, bridgeAngles, portalDiffs)
 		local a = math.rad(signDeg)
 		local tangent = Vector3.new(-math.sin(a), 0, math.cos(a))
 		local c = polar(signDeg, 44, TOP)
-		flowerPatch(f, rng, c + tangent * 11, 3.4, 5)
-		flowerPatch(f, rng, c - tangent * 11, 3.4, 5)
+		flowerPatch(f, rng, c + tangent * 11, 3.4, 4)
+		flowerPatch(f, rng, c - tangent * 11, 3.4, 4)
 	end
 	flowerPatch(f, rng, polar(270, 52, TOP), 5, 9)
 
@@ -966,7 +967,7 @@ local function buildPortal(root, rng, diff, angleDeg)
 	local gateCenter = gateGround + Vector3.new(0, ringY, 0)
 	local gateCF = CFrame.lookAt(gateCenter, gateCenter - outward)
 
-	local ringSegs = 22
+	local ringSegs = 20
 	local segLen = 2 * ringR * math.sin(math.pi / ringSegs) * 1.12
 	for k = 0, ringSegs - 1 do
 		local phi = (k + 0.5) * (math.pi * 2 / ringSegs)
@@ -982,7 +983,7 @@ local function buildPortal(root, rng, diff, angleDeg)
 		})
 	end
 
-	local frameCount = 14
+	local frameCount = 12
 	for k = 0, frameCount - 1 do
 		local phi = (k + rng:Float(-0.2, 0.2)) * (math.pi * 2 / frameCount)
 		local fr = ringR + 1.9
@@ -1104,7 +1105,7 @@ local function buildPortal(root, rng, diff, angleDeg)
 	})
 	titleLabel.Parent = card
 
-	local starText = string.rep("\226\152\133", stars) .. string.rep("\226\152\134", math.max(0, 3 - stars)) -- ★ and ☆
+	local starText = string.rep("\226\152\133", stars) .. string.rep("\226\152\134", math.max(0, 3 - stars)) -- filled stars, then hollow stars for the rest
 	local starLabel = Theme.Label(starText, "Label", {
 		Size = 26,
 		Color = C.Token,
@@ -1329,7 +1330,7 @@ local function buildIsland(parent, rng, spec)
 	disc(f, c - Vector3.new(0, 10.5, 0), r * 1.0, 5, { Name = "IslandTier", Color = COL.Lilac, Transparency = 0.12, CanCollide = false })
 	disc(f, c - Vector3.new(0, 15.5, 0), r * 0.5, 5, { Name = "IslandTier", Color = COL.Dusk, Transparency = 0.28, CanCollide = false })
 
-	rimPuffs(f, rng, c, r - 0.4, 7, 4.5, 7, 0.2, 0.9, COL.Cloud, { toPlaza }, 22)
+	rimPuffs(f, rng, c, r - 0.4, 6, 5, 8, 0.2, 0.9, COL.Cloud, { toPlaza }, 22)
 	for _ = 1, 3 do
 		local a = rng:Float(0, math.pi * 2)
 		local dist = rng:Float(r * 0.3, r * 0.8)
@@ -1368,7 +1369,7 @@ local function buildIsland(parent, rng, spec)
 		elseif feature == "Flowers" then
 			local x, z = placer.Find(4.2, r * 0.2, r * 0.72, 0, 360)
 			if x then
-				flowerPatch(f, rng, c + Vector3.new(x, 0, z), 3.6, 5)
+				flowerPatch(f, rng, c + Vector3.new(x, 0, z), 3.6, 4)
 			end
 		elseif feature == "Tokens" then
 			local x, z = placer.Find(6.5, 0, r * 0.2, 0, 360)
@@ -1405,6 +1406,11 @@ local function buildBridge(parent, rng, spec)
 	local a = math.rad(spec.Angle)
 	local perp = Vector3.new(-math.sin(a), 0, math.cos(a))
 
+	-- A pair of glowing lamp posts marks the bridge entrance on the plaza side.
+	local entry = polar(spec.Angle, SURF_R - 4.5, TOP)
+	lampPost(f, entry + perp * 4.8, false)
+	lampPost(f, entry - perp * 4.8, false)
+
 	for i = 1, steps - 1 do
 		local t = i / steps
 		local wobble = rng:Float(-0.6, 0.6)
@@ -1415,7 +1421,7 @@ local function buildBridge(parent, rng, spec)
 			Name = "CloudStep",
 			Color = COL.Cloud:Lerp(COL.Shade, rng:Float(0, 0.25)),
 		})
-		if i % 2 == 0 then
+		if i % 3 == 0 then
 			local side = 1
 			if rng:Chance(0.5) then
 				side = -1
@@ -1458,8 +1464,8 @@ local function buildSky(root)
 
 	-- A fluffy sea far under the lobby. Non-collidable, so falling players are caught by the
 	-- kill-plane teleport rather than landing on it.
-	for i = 1, 10 do
-		local ang = (i - 1) * 36 + rng:Float(-14, 14)
+	for i = 1, 8 do
+		local ang = (i - 1) * 45 + rng:Float(-16, 16)
 		local dist = rng:Float(150, 340)
 		local y = TOP - rng:Float(75, 130)
 		cloudCluster(f, rng, polar(ang, dist, y), rng:Float(22, 40), {
