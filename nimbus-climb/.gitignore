@@ -1,23 +1,5 @@
-# Dependencies and caches of the verification tooling
 node_modules/
 __pycache__/
-*.pyc
-.pytest_cache/
-
-# Place files built with `rojo build -o NimbusClimb.rbxlx` (generated, large, binary-ish)
 *.rbxl
 *.rbxlx
-*.rbxl.lock
-*.rbxlx.lock
-/build/
-
-# Editor / OS noise
-.DS_Store
-Thumbs.db
-.idea/
-.vscode/
-*.swp
-*~
-
-# Local smoke-test output
-smoke-results.json
+!play/NimbusClimb.rbxlx
